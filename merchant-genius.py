@@ -17,7 +17,6 @@ from fws import *
 import aiofiles
 import aiohttp
 from aiohttp import ClientSession
-from playwright_util import *
 logging.basicConfig(
     format="%(asctime)s %(levelname)s:%(name)s: %(message)s",
     level=logging.DEBUG,
@@ -186,25 +185,30 @@ async def write_one_locs(file: IO, url: str, **kwargs) -> None:
     print('==============usp is started==============')
 
     # start = time.time()
-
-
-    tree = sitemap_tree_for_homepage(url)
-    # SitemapPage(url=https://www.indiehackers.com/forum/the-business-of-podcasting-with-jeff-meyerson-of-software-engineering-daily-e2b157d5de, priority=0.2, last_modified=2019-09-04 18:27:13+00:00, change_frequency=SitemapPageChangeFrequency.MONTHLY, news_story=None)
-    if InvalidSitemap in tree.sub_sitemaps:
+    urls=[]
+    try:
+        tree = sitemap_tree_for_homepage(url)
+        # SitemapPage(url=https://www.indiehackers.com/forum/the-business-of-podcasting-with-jeff-meyerson-of-software-engineering-daily-e2b157d5de, priority=0.2, last_modified=2019-09-04 18:27:13+00:00, change_frequency=SitemapPageChangeFrequency.MONTHLY, news_story=None)
+        urls=[ x.url for x in tree.all_pages()]
+    except:
         print('you need last straw')
-        urls = crawler(url, 1)
+        # urls = crawler(url, 1)
 
-    else:
-        robot=tree.sub_sitemaps[0].url
-        indexxmlsimap=[ x.url for x in tree.sub_sitemaps[0].sub_sitemaps]
-        urls=[ x.url for x in tree.all_pages]
-    if not urls:
-        return None
+
+
+    print('urls===========',urls)
+    if len(urls)==0:
+        # urls = crawler(url, 1)
+        if len(urls)==0:
+
+            async with aiofiles.open('error', "a") as f:
+                await f.write(f"{url}\n")
+                logger.info("Wrote results for source URL: %s", url)
+
+
     async with aiofiles.open(file, "a") as f:
         for p in urls:
             print('p',p)
-            if 'https://www.merchantgenius.io' in url:
-                url=url.replace('https://www.merchantgenius.io','')
             await f.write(f"{url}\t{p}\n")
         logger.info("Wrote results for source URL: %s", url)
 
@@ -223,15 +227,20 @@ def usp():
     found_suburls=[]
     with open(here.joinpath("shop_urls.txt")) as infile:
         found_suburls = set(map(str.strip, infile))    
+    
     outpath1 = here.joinpath("shop_urls_locs.txt")
     found_suburls=[x.split('\t')[-1] for x in found_suburls]
+    
+    # found_suburls=['dogsexdolls.com']
     # print(found_suburls,'============')
     with open(outpath1, "w") as outfile1:
         outfile1.write("source_url\tparsed_url\n")
     t =list_split(found_suburls,5)
     for i in range(len(t)):
         # print(t[i])
-        asyncio.run(bulk_crawl_and_write_loc(file=outpath1, urls=t[i]))
+        u=list(set(t[i]))
+
+        asyncio.run(bulk_crawl_and_write_loc(file=outpath1, urls=u))
 
 if __name__ == "__main__":
     # found_suburls=suburls()
